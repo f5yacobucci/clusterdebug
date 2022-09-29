@@ -1,0 +1,82 @@
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: debug-headless
+  labels:
+    app: debug
+    type: statefulset-internal
+spec:
+  type: ClusterIP
+  clusterIP: None
+  ports:
+  - name: http
+    port: 8080
+    targetPort: 8080
+  selector:
+    app: debug
+    type: statefulset-cluster
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: debug-client
+  labels:
+    app: debug
+    type: statefulset-client
+spec:
+  type: ClusterIP
+  ports:
+  - name: http-client
+    port: 8080
+    targetPort: 8080
+  selector:
+    app: debug
+    type: statefulset-cluster
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: debug
+  labels:
+    app: debug
+    type: statefulset-cluster
+spec:
+  serviceName: debug-headless
+  replicas: 1
+  podManagementPolicy: "OrderedReady"
+  updateStrategy:
+    type: "RollingUpdate"
+  selector:
+    matchLabels:
+      app: debug
+      type: statefulset-cluster
+  template:
+    metadata:
+      name: debug
+      labels:
+        app: debug
+        type: statefulset-cluster
+    spec:
+      containers:
+      - name: debug
+        image: f5yacobucci/stateful-debug:v1
+        ports:
+        - containerPort: 8080
+          name: http
+        imagePullPolicy: "Always"
+        env:
+        - name: SELF_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: SELF_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        - name: SELF_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: SELF_SERVICE
+          value: "debug-headless"
